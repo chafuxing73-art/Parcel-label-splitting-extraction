@@ -2,6 +2,7 @@ import pytest
 import os
 import sys
 import tempfile
+import io
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
@@ -32,7 +33,7 @@ class TestAppRoutes:
         assert response.status_code == 400
 
     def test_process_route_invalid_file(self):
-        data = {'file': ('test.txt', b'not a pdf', 'text/plain')}
+        data = {'file': (io.BytesIO(b'not a pdf'), 'test.txt', 'text/plain')}
         response = self.client.post('/api/process', data=data, content_type='multipart/form-data')
         assert response.status_code == 400
         json_data = response.get_json()
