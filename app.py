@@ -20,7 +20,10 @@ os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
 os.makedirs(app.config['OUTPUT_FOLDER'], exist_ok=True)
 
 
-def detect_layout(page_width, page_height):
+def detect_layout(page_width, page_height, crop_width=None, crop_height=None):
+    if crop_width is not None and crop_height is not None:
+        if crop_width < page_width * 0.6 and crop_height < page_height * 0.6:
+            return "single"
     if page_width > 500 or page_height > 500:
         return "grid"
     return "single"
@@ -117,10 +120,14 @@ def process_pdf(input_pdf, output_dir):
 
     page = doc[0]
     media_box = page.mediabox
+    crop_box = page.cropbox
     page_width = media_box.width
     page_height = media_box.height
+    crop_width = crop_box.width
+    crop_height = crop_box.height
 
-    layout = detect_layout(page_width, page_height)
+    layout = detect_layout(page_width, page_height, crop_width, crop_height)
+    pre_cropped = crop_width < page_width * 0.6 and crop_height < page_height * 0.6
 
     if layout == "grid":
         half_width = page_width / 2
@@ -140,13 +147,16 @@ def process_pdf(input_pdf, output_dir):
             new_doc.insert_pdf(doc, from_page=page_idx, to_page=page_idx)
             page_obj = new_doc[0]
 
-            try:
-                page_obj.set_cropbox(rect)
-            except ValueError:
-                page_obj.set_mediabox(rect)
-                page_obj.set_cropbox(rect)
+            if pre_cropped:
+                text = page_obj.get_text()
+            else:
+                try:
+                    page_obj.set_cropbox(rect)
+                except ValueError:
+                    page_obj.set_mediabox(rect)
+                    page_obj.set_cropbox(rect)
+                text = page_obj.get_text()
 
-            text = page_obj.get_text()
             master_no = extract_master_no(text)
 
             if not master_no:
@@ -173,6 +183,7 @@ def process_pdf(input_pdf, output_dir):
                 page_num = int(page_match.group(1))
                 page_total = int(page_match.group(2))
 
+            actual_cropbox = page_obj.cropbox
             tmp_path = os.path.join(output_dir, f"_tmp_{master_no}_{page_idx}_{region_name}.pdf")
             new_doc.save(tmp_path, garbage=4, deflate=True)
             new_doc.close()
@@ -187,7 +198,7 @@ def process_pdf(input_pdf, output_dir):
                     "barcodes": [],
                 }
 
-            temp_files[master_no]["pages"].append({"path": tmp_path, "page_num": page_num, "page_total": page_total})
+            temp_files[master_no]["pages"].append({"path": tmp_path, "page_num": page_num, "page_total": page_total, "cropbox": actual_cropbox})
             if sub_no:
                 temp_files[master_no]["sub_nos_with_page"].append({"page_num": page_num, "sub_no": sub_no})
             if not temp_files[master_no]["shipment_no"] and shipment_no:
@@ -227,6 +238,8 @@ def process_pdf(input_pdf, output_dir):
                 src_doc = fitz.open(page_info["path"])
                 merged.insert_pdf(src_doc)
                 src_doc.close()
+            for page_idx, page_info in enumerate(sorted_pages):
+                merged[page_idx].set_cropbox(page_info["cropbox"])
             merged.save(final_path, garbage=4, deflate=True)
             merged.close()
             for page_info in pages_info:

@@ -22,11 +22,15 @@ import csv
 import xlwt
 
 
-def detect_layout(page_width, page_height):
+def detect_layout(page_width, page_height, crop_width=None, crop_height=None):
     """
     自动检测面单布局格式
     返回: "single" (单页单张) 或 "grid" (2×2合版)
+    如果CropBox已经小于MediaBox的一半，说明是预裁剪格式，按单页处理
     """
+    if crop_width is not None and crop_height is not None:
+        if crop_width < page_width * 0.6 and crop_height < page_height * 0.6:
+            return "single"
     if page_width > 500 or page_height > 500:
         return "grid"
     else:
@@ -151,11 +155,17 @@ def split_labels_and_extract(input_pdf, output_dir=None):
 
     page = doc[0]
     media_box = page.mediabox
+    crop_box = page.cropbox
     page_width = media_box.width
     page_height = media_box.height
+    crop_width = crop_box.width
+    crop_height = crop_box.height
     
-    layout = detect_layout(page_width, page_height)
+    layout = detect_layout(page_width, page_height, crop_width, crop_height)
+    pre_cropped = crop_width < page_width * 0.6 and crop_height < page_height * 0.6
     print(f"📐 页面尺寸: {page_width:.1f} × {page_height:.1f}")
+    if pre_cropped:
+        print(f"📐 可见区域: {crop_width:.1f} × {crop_height:.1f} (预裁剪格式)")
     print(f"📋 检测到布局: {'2×2合版' if layout == 'grid' else '单页单张'}")
 
     if layout == "grid":
@@ -182,13 +192,15 @@ def split_labels_and_extract(input_pdf, output_dir=None):
             new_doc.insert_pdf(doc, from_page=page_idx, to_page=page_idx)
             page = new_doc[0]
 
-            try:
-                page.set_cropbox(rect)
-            except ValueError:
-                page.set_mediabox(rect)
-                page.set_cropbox(rect)
-
-            text = page.get_text()
+            if pre_cropped:
+                text = page.get_text()
+            else:
+                try:
+                    page.set_cropbox(rect)
+                except ValueError:
+                    page.set_mediabox(rect)
+                    page.set_cropbox(rect)
+                text = page.get_text()
             master_no = extract_master_no(text)
 
             if not master_no:
@@ -217,6 +229,7 @@ def split_labels_and_extract(input_pdf, output_dir=None):
                 page_num = int(page_match.group(1))
                 page_total = int(page_match.group(2))
 
+            actual_cropbox = page.cropbox
             tmp_path = os.path.join(output_dir, f"_tmp_{master_no}_{page_idx}_{region_name}.pdf")
             new_doc.save(tmp_path, garbage=4, deflate=True)
             new_doc.close()
@@ -230,7 +243,7 @@ def split_labels_and_extract(input_pdf, output_dir=None):
                     "barcodes_with_page": [],
                     "barcodes": [],
                 }
-            temp_files[master_no]["pages"].append({"path": tmp_path, "page_num": page_num, "page_total": page_total, "cropbox": rect})
+            temp_files[master_no]["pages"].append({"path": tmp_path, "page_num": page_num, "page_total": page_total, "cropbox": actual_cropbox})
             # 收集所有子单号（保留所有，不去重），记录对应的页码
             if sub_no:
                 temp_files[master_no]["sub_nos_with_page"].append({"page_num": page_num, "sub_no": sub_no})
