@@ -1,0 +1,984 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DHL面单分割工具</title>
+    <style>
+        :root {
+            --primary-gradient: linear-gradient(135deg, #10b981 0%, #059669 100%);
+            --secondary-gradient: linear-gradient(135deg, #064e3b 0%, #047857 100%);
+            --accent-gradient: linear-gradient(135deg, #34d399 0%, #10b981 100%);
+            --success-color: #10b981;
+            --warning-color: #f59e0b;
+            --error-color: #ef4444;
+            --bg-color: #f0fdf4;
+            --card-bg: #ffffff;
+            --text-primary: #064e3b;
+            --text-secondary: #059669;
+            --text-muted: #64748b;
+            --border-color: #d1fae5;
+            --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+            --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+            --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+            --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+            --radius-sm: 0.375rem;
+            --radius-md: 0.5rem;
+            --radius-lg: 0.75rem;
+            --radius-xl: 1rem;
+            --radius-2xl: 1.5rem;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: "Inter", "Microsoft YaHei", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%);
+            min-height: 100vh;
+            padding: 20px;
+            line-height: 1.6;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+        }
+
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            background: var(--card-bg);
+            border-radius: var(--radius-2xl);
+            box-shadow: var(--shadow-xl);
+            overflow: hidden;
+            animation: fadeInUp 0.6s ease-out;
+        }
+
+        @keyframes fadeInUp {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .header {
+            background: var(--secondary-gradient);
+            color: white;
+            padding: 40px 30px;
+            text-align: center;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .header::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            right: -50%;
+            width: 100%;
+            height: 100%;
+            background: radial-gradient(circle, rgba(255, 255, 255, 0.1) 0%, transparent 70%);
+        }
+
+        .header::after {
+            content: '';
+            position: absolute;
+            bottom: -50%;
+            left: -50%;
+            width: 100%;
+            height: 100%;
+            background: radial-gradient(circle, rgba(255, 255, 255, 0.08) 0%, transparent 70%);
+        }
+
+        .header-content {
+            position: relative;
+            z-index: 1;
+        }
+
+        .header h1 {
+            font-size: 32px;
+            font-weight: 700;
+            margin-bottom: 12px;
+            letter-spacing: -0.5px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 12px;
+        }
+
+        .header h1::before {
+            content: '📦';
+            font-size: 36px;
+            animation: bounce 2s ease-in-out infinite;
+        }
+
+        @keyframes bounce {
+            0%, 100% {
+                transform: translateY(0);
+            }
+            50% {
+                transform: translateY(-8px);
+            }
+        }
+
+        .header p {
+            opacity: 0.9;
+            font-size: 15px;
+            font-weight: 400;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+
+        .header p::before {
+            content: '🌐';
+        }
+
+        .content {
+            padding: 40px 30px;
+        }
+
+        .info-box {
+            background: linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%);
+            border: 1px solid #93c5fd;
+            border-radius: var(--radius-lg);
+            padding: 20px;
+            margin-bottom: 30px;
+            font-size: 14px;
+            color: #1e40af;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .info-box::before {
+            content: '📋';
+            position: absolute;
+            top: -10px;
+            right: -10px;
+            font-size: 60px;
+            opacity: 0.1;
+        }
+
+        .info-box strong {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            font-size: 15px;
+        }
+
+        .upload-area {
+            border: 2px dashed #cbd5e1;
+            border-radius: var(--radius-xl);
+            padding: 60px 20px;
+            text-align: center;
+            transition: all 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+            cursor: pointer;
+            margin-bottom: 25px;
+            background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .upload-area::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(16, 185, 129, 0.1), transparent);
+            transition: left 0.5s ease;
+        }
+
+        .upload-area:hover::before {
+            left: 100%;
+        }
+
+        .upload-area:hover {
+            border-color: #10b981;
+            background: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%);
+            box-shadow: 0 4px 20px rgba(16, 185, 129, 0.15);
+            transform: translateY(-2px);
+        }
+
+        .upload-area.dragover {
+            border-color: #10b981;
+            background: linear-gradient(135deg, #d1fae5 0%, #a7f3d0 100%);
+            box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.2);
+            transform: scale(1.02);
+        }
+
+        .upload-icon {
+            font-size: 72px;
+            color: #10b981;
+            margin-bottom: 20px;
+            transition: transform 0.3s ease;
+        }
+
+        .upload-area:hover .upload-icon {
+            transform: scale(1.1);
+        }
+
+        .upload-text {
+            font-size: 20px;
+            font-weight: 600;
+            color: var(--text-primary);
+            margin-bottom: 12px;
+        }
+
+        .upload-hint {
+            font-size: 14px;
+            color: var(--text-muted);
+        }
+
+        #fileInput {
+            display: none;
+        }
+
+        .btn-container {
+            text-align: center;
+            margin-top: 25px;
+        }
+
+        .btn {
+            background: var(--primary-gradient);
+            color: white;
+            border: none;
+            padding: 16px 50px;
+            font-size: 16px;
+            font-weight: 600;
+            border-radius: var(--radius-lg);
+            cursor: pointer;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+            box-shadow: 0 4px 14px rgba(16, 185, 129, 0.4);
+            letter-spacing: 0.5px;
+        }
+
+        .btn:hover:not(:disabled) {
+            transform: translateY(-3px);
+            box-shadow: 0 8px 25px rgba(16, 185, 129, 0.5);
+        }
+
+        .btn:active:not(:disabled) {
+            transform: translateY(-1px);
+        }
+
+        .btn:disabled {
+            background: linear-gradient(135deg, #cbd5e1 0%, #94a3b8 100%);
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+            opacity: 0.7;
+        }
+
+        .btn::before {
+            content: '🚀';
+            font-size: 18px;
+        }
+
+        .progress-area {
+            display: none;
+            margin-top: 30px;
+            animation: fadeIn 0.3s ease;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        .progress-container {
+            background: linear-gradient(135deg, #f1f5f9 0%, #e2e8f0 100%);
+            border-radius: var(--radius-lg);
+            padding: 20px;
+            box-shadow: var(--shadow-sm);
+        }
+
+        .progress-bar-container {
+            background: #e2e8f0;
+            border-radius: var(--radius-md);
+            height: 8px;
+            overflow: hidden;
+            margin-bottom: 15px;
+            position: relative;
+        }
+
+        .progress-bar {
+            height: 100%;
+            background: var(--primary-gradient);
+            width: 0%;
+            transition: width 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            border-radius: var(--radius-md);
+            position: relative;
+        }
+
+        .progress-bar::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.3), transparent);
+            animation: shimmer 1.5s infinite;
+        }
+
+        @keyframes shimmer {
+            0% { transform: translateX(-100%); }
+            100% { transform: translateX(100%); }
+        }
+
+        .progress-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 12px;
+        }
+
+        .progress-title {
+            font-size: 14px;
+            font-weight: 600;
+            color: var(--text-primary);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .progress-title::before {
+            content: '⚡';
+        }
+
+        .progress-percentage {
+            font-size: 14px;
+            font-weight: 600;
+            color: #10b981;
+        }
+
+        .progress-text {
+            text-align: center;
+            color: var(--text-secondary);
+            font-size: 14px;
+            padding-top: 5px;
+        }
+
+        .result-area {
+            display: none;
+            margin-top: 30px;
+            animation: slideInUp 0.4s ease-out;
+        }
+
+        @keyframes slideInUp {
+            from {
+                opacity: 0;
+                transform: translateY(30px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .result-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 20px;
+            padding: 20px;
+            background: linear-gradient(135deg, #dcfce7 0%, #bbf7d0 100%);
+            border-radius: var(--radius-lg);
+            border: 1px solid #86efac;
+        }
+
+        .result-title {
+            font-size: 20px;
+            font-weight: 700;
+            color: #166534;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .result-title::before {
+            content: '✅';
+            font-size: 24px;
+            animation: checkPulse 0.6s ease;
+        }
+
+        @keyframes checkPulse {
+            0% { transform: scale(0); }
+            50% { transform: scale(1.3); }
+            100% { transform: scale(1); }
+        }
+
+        .download-btn {
+            background: var(--success-color);
+            color: white;
+            border: none;
+            padding: 10px 24px;
+            font-size: 14px;
+            font-weight: 600;
+            border-radius: var(--radius-md);
+            cursor: pointer;
+            text-decoration: none;
+            transition: all 0.3s ease;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            box-shadow: 0 2px 8px rgba(16, 185, 129, 0.3);
+        }
+
+        .download-btn:hover {
+            background: #059669;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(16, 185, 129, 0.4);
+        }
+
+        .download-btn::before {
+            content: '📥';
+        }
+
+        .summary-section {
+            margin-top: 25px;
+        }
+
+        .summary-title {
+            font-size: 16px;
+            font-weight: 600;
+            color: var(--text-primary);
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .summary-title::before {
+            content: '📊';
+        }
+
+        .summary-container {
+            overflow-x: auto;
+            max-width: 100%;
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-lg);
+            box-shadow: var(--shadow-sm);
+        }
+
+        .summary-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 13px;
+            table-layout: fixed;
+        }
+
+        .summary-table th, .summary-table td {
+            padding: 12px 10px;
+            text-align: left;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            vertical-align: middle;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .summary-table th {
+            background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+            font-weight: 600;
+            font-size: 12px;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            position: sticky;
+            top: 0;
+            z-index: 1;
+        }
+
+        .summary-table th:first-child {
+            border-radius: var(--radius-lg) 0 0 0;
+        }
+
+        .summary-table th:last-child {
+            border-radius: 0 var(--radius-lg) 0 0;
+        }
+
+        .summary-table tr:last-child td {
+            border-bottom: none;
+        }
+
+        .summary-table tr:hover {
+            background: linear-gradient(90deg, #f0f4ff 0%, transparent 100%);
+            transition: background 0.2s ease;
+        }
+
+        .summary-table td:first-child {
+            color: var(--text-muted);
+            font-weight: 500;
+        }
+
+        .summary-table td:nth-child(2) {
+            color: var(--text-primary);
+            font-weight: 500;
+        }
+
+        .summary-table td:nth-child(3),
+        .summary-table td:nth-child(4),
+        .summary-table td:nth-child(5) {
+            color: var(--text-secondary);
+        }
+
+        .summary-table td:nth-child(6) {
+            color: #10b981;
+            font-weight: 600;
+        }
+
+        .summary-table td:nth-child(7) {
+            color: var(--text-muted);
+        }
+
+        .file-item {
+            padding: 15px;
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            transition: background 0.2s ease;
+        }
+
+        .file-item:hover {
+            background: #f8fafc;
+        }
+
+        .file-item:last-child {
+            border-bottom: none;
+        }
+
+        .file-info {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+
+        .file-name {
+            color: var(--text-primary);
+            font-weight: 500;
+            font-size: 14px;
+        }
+
+        .file-size {
+            color: var(--text-muted);
+            font-size: 12px;
+        }
+
+        .error-msg {
+            background: linear-gradient(135deg, #fee2e2 0%, #fecaca 100%);
+            border: 1px solid #fca5a5;
+            color: #991b1b;
+            padding: 16px 20px;
+            border-radius: var(--radius-lg);
+            margin-top: 20px;
+            display: none;
+            animation: shake 0.4s ease;
+            position: relative;
+            overflow: hidden;
+        }
+
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            25% { transform: translateX(-5px); }
+            75% { transform: translateX(5px); }
+        }
+
+        .error-msg::before {
+            content: '❌';
+            margin-right: 10px;
+            font-size: 16px;
+        }
+
+        .stats-row {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+            gap: 15px;
+            margin-bottom: 25px;
+        }
+
+        .stat-card {
+            background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-lg);
+            padding: 20px;
+            text-align: center;
+            transition: all 0.3s ease;
+        }
+
+        .stat-card:hover {
+            transform: translateY(-2px);
+            box-shadow: var(--shadow-md);
+            border-color: #10b981;
+        }
+
+        .stat-value {
+            font-size: 28px;
+            font-weight: 700;
+            color: #10b981;
+            margin-bottom: 5px;
+        }
+
+        .stat-label {
+            font-size: 13px;
+            color: var(--text-secondary);
+        }
+
+        @media (max-width: 768px) {
+            body {
+                padding: 10px;
+            }
+
+            .header {
+                padding: 30px 20px;
+            }
+
+            .header h1 {
+                font-size: 24px;
+                flex-direction: column;
+                gap: 8px;
+            }
+
+            .header h1::before {
+                font-size: 28px;
+            }
+
+            .content {
+                padding: 25px 20px;
+            }
+
+            .upload-area {
+                padding: 40px 15px;
+            }
+
+            .upload-icon {
+                font-size: 56px;
+            }
+
+            .upload-text {
+                font-size: 17px;
+            }
+
+            .btn {
+                padding: 14px 35px;
+                font-size: 15px;
+            }
+
+            .result-header {
+                flex-direction: column;
+                gap: 15px;
+                text-align: center;
+            }
+
+            .result-title {
+                font-size: 17px;
+            }
+
+            .summary-table th, .summary-table td {
+                padding: 10px 6px;
+                font-size: 11px;
+            }
+
+            .stat-card {
+                padding: 15px;
+            }
+
+            .stat-value {
+                font-size: 22px;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .header h1 {
+                font-size: 20px;
+            }
+
+            .upload-area {
+                padding: 30px 10px;
+            }
+
+            .upload-icon {
+                font-size: 48px;
+            }
+
+            .upload-text {
+                font-size: 15px;
+            }
+
+            .btn {
+                padding: 12px 25px;
+                font-size: 14px;
+                width: 100%;
+                justify-content: center;
+            }
+
+            .stats-row {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <div class="header-content">
+                <h1>DHL面单分割工具</h1>
+                <p>支持多用户同时访问 | 局域网共享使用</p>
+            </div>
+        </div>
+        <div class="content">
+            <div class="info-box">
+                <strong>功能说明：</strong>
+                自动将多面单合版PDF按单号分割为独立PDF文件，同时提取主单号、子单号、单号及条形码信息，生成CSV汇总表和Excel模板文件。
+            </div>
+
+            <div class="upload-area" id="uploadArea">
+                <div class="upload-icon">📤</div>
+                <div class="upload-text">点击选择PDF文件或拖拽到此处</div>
+                <div class="upload-hint">支持 .pdf 格式，最大 100MB</div>
+            </div>
+            <input type="file" id="fileInput" accept=".pdf">
+
+            <div class="btn-container">
+                <button class="btn" id="processBtn" disabled>开始处理</button>
+            </div>
+
+            <div class="progress-area" id="progressArea">
+                <div class="progress-container">
+                    <div class="progress-header">
+                        <span class="progress-title">处理进度</span>
+                        <span class="progress-percentage" id="progressPercentage">0%</span>
+                    </div>
+                    <div class="progress-bar-container">
+                        <div class="progress-bar" id="progressBar"></div>
+                    </div>
+                    <div class="progress-text" id="progressText">准备中...</div>
+                </div>
+            </div>
+
+            <div class="error-msg" id="errorMsg"></div>
+
+            <div class="result-area" id="resultArea">
+                <div class="result-header">
+                    <span class="result-title">处理完成</span>
+                    <a class="download-btn" id="downloadAllBtn">下载全部</a>
+                </div>
+
+                <div class="stats-row" id="statsRow">
+                    <div class="stat-card">
+                        <div class="stat-value" id="statTotal">0</div>
+                        <div class="stat-label">总面单数</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value" id="statSuccess">0</div>
+                        <div class="stat-label">成功分割</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value" id="statPages">0</div>
+                        <div class="stat-label">总页数</div>
+                    </div>
+                </div>
+
+                <div class="summary-section">
+                    <h3 class="summary-title">汇总信息</h3>
+                    <div class="summary-container">
+                        <table class="summary-table" id="summaryTable">
+                            <thead>
+                                <tr>
+                                    <th>序号</th>
+                                    <th>文件名</th>
+                                    <th>主单号</th>
+                                    <th>子单号</th>
+                                    <th>单号</th>
+                                    <th>页数</th>
+                                    <th>备注</th>
+                                    <th>操作</th>
+                                </tr>
+                            </thead>
+                            <tbody id="summaryBody"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const uploadArea = document.getElementById('uploadArea');
+        const fileInput = document.getElementById('fileInput');
+        const processBtn = document.getElementById('processBtn');
+        const progressArea = document.getElementById('progressArea');
+        const progressBar = document.getElementById('progressBar');
+        const progressText = document.getElementById('progressText');
+        const progressPercentage = document.getElementById('progressPercentage');
+        const errorMsg = document.getElementById('errorMsg');
+        const resultArea = document.getElementById('resultArea');
+        const summaryBody = document.getElementById('summaryBody');
+        const downloadAllBtn = document.getElementById('downloadAllBtn');
+        const statsRow = document.getElementById('statsRow');
+        const statTotal = document.getElementById('statTotal');
+        const statSuccess = document.getElementById('statSuccess');
+        const statPages = document.getElementById('statPages');
+
+        let selectedFile = null;
+        let currentTaskId = null;
+
+        uploadArea.addEventListener('click', () => fileInput.click());
+
+        uploadArea.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            uploadArea.classList.add('dragover');
+        });
+
+        uploadArea.addEventListener('dragleave', () => {
+            uploadArea.classList.remove('dragover');
+        });
+
+        uploadArea.addEventListener('drop', (e) => {
+            e.preventDefault();
+            uploadArea.classList.remove('dragover');
+            const files = e.dataTransfer.files;
+            if (files.length > 0 && files[0].name.toLowerCase().endsWith('.pdf')) {
+                handleFileSelect(files[0]);
+            } else {
+                showError('请选择PDF文件');
+            }
+        });
+
+        fileInput.addEventListener('change', (e) => {
+            if (e.target.files.length > 0) {
+                handleFileSelect(e.target.files[0]);
+            }
+        });
+
+        function handleFileSelect(file) {
+            if (!file.name.toLowerCase().endsWith('.pdf')) {
+                showError('请选择PDF文件');
+                return;
+            }
+            if (file.size > 100 * 1024 * 1024) {
+                showError('文件大小不能超过100MB');
+                return;
+            }
+            selectedFile = file;
+            processBtn.disabled = false;
+            errorMsg.style.display = 'none';
+            resultArea.style.display = 'none';
+            uploadArea.querySelector('.upload-text').textContent = file.name;
+            uploadArea.querySelector('.upload-hint').textContent = '文件大小: ' + formatSize(file.size);
+        }
+
+        function formatSize(bytes) {
+            if (bytes < 1024) return bytes + ' B';
+            if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+            return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+        }
+
+        processBtn.addEventListener('click', async () => {
+            if (!selectedFile) return;
+
+            processBtn.disabled = true;
+            progressArea.style.display = 'block';
+            resultArea.style.display = 'none';
+            errorMsg.style.display = 'none';
+            progressBar.style.width = '0%';
+            progressPercentage.textContent = '0%';
+            progressText.textContent = '准备中...';
+
+            const formData = new FormData();
+            formData.append('file', selectedFile);
+
+            let progress = 0;
+            const progressInterval = setInterval(() => {
+                progress += Math.random() * 3 + 1;
+                if (progress <= 90) {
+                    progressBar.style.width = progress + '%';
+                    progressPercentage.textContent = Math.round(progress) + '%';
+                    const statuses = ['上传文件中...', '处理PDF数据...', '提取单号信息...', '生成汇总表...', '打包文件...'];
+                    const statusIndex = Math.min(Math.floor(progress / 20), statuses.length - 1);
+                    progressText.textContent = statuses[statusIndex];
+                }
+            }, 300);
+
+            try {
+                const response = await fetch('/api/process', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                clearInterval(progressInterval);
+                progressBar.style.width = '100%';
+                progressPercentage.textContent = '100%';
+                progressText.textContent = '处理完成!';
+
+                const result = await response.json();
+
+                if (result.success) {
+                    currentTaskId = result.task_id;
+                    await new Promise(resolve => setTimeout(resolve, 500));
+                    showResults(result);
+                } else {
+                    showError(result.error || '处理失败');
+                }
+            } catch (err) {
+                clearInterval(progressInterval);
+                showError('网络错误: ' + err.message);
+            } finally {
+                processBtn.disabled = false;
+            }
+        });
+
+        function showResults(result) {
+            resultArea.style.display = 'block';
+            downloadAllBtn.href = '/api/download_all/' + result.task_id;
+
+            statTotal.textContent = result.summary.length;
+            statSuccess.textContent = result.summary.filter(item => !item['备注'] || item['备注'] === '').length;
+            statPages.textContent = result.summary.reduce((sum, item) => sum + (item['页数'] || 0), 0);
+
+            summaryBody.innerHTML = '';
+            result.summary.forEach(item => {
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td>${item['序号']}</td>
+                    <td title="${item['文件名']}">${item['文件名']}</td>
+                    <td title="${item['主单号'] || '-'}">${item['主单号'] || '-'}</td>
+                    <td title="${item['子单号'] || '-'}">${item['子单号'] || '-'}</td>
+                    <td title="${item['单号(Shipment No)'] || '-'}">${item['单号(Shipment No)'] || '-'}</td>
+                    <td>${item['页数']}</td>
+                    <td title="${item['备注'] || '-'}">${item['备注'] || '-'}</td>
+                    <td><a class="download-btn" href="/api/download/${result.task_id}/${item['文件名']}">下载</a></td>
+                `;
+                summaryBody.appendChild(tr);
+            });
+
+            setTimeout(() => {
+                const link = document.createElement('a');
+                link.href = '/api/download_all/' + result.task_id;
+                link.download = 'split_labels.zip';
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+            }, 800);
+        }
+
+        function showError(message) {
+            errorMsg.textContent = message;
+            errorMsg.style.display = 'block';
+            progressArea.style.display = 'none';
+        }
+    </script>
+</body>
+</html>
